@@ -276,8 +276,12 @@ function draw(){
     xh *= avail / (box.w * units);
     box = inkBox(f, xh / f.xhR, dpr);
   }
-  const size = xh / f.xhR;
-  const inkW = box.w, gap = GAP_RATIO * inkW, pitch = inkW + gap;
+  let size = xh / f.xhR, inkW = box.w, off = box.off;
+  if(inkW * units > avail){                                   // reliquat de mesure : ajustement final (< 1 %)
+    const s = avail / (inkW * units);
+    size *= s; inkW *= s; off *= s;
+  }
+  const gap = GAP_RATIO * inkW, pitch = inkW + gap;
   const total = r.n * inkW + (r.n - 1) * gap;
   const left = (w - total) / 2;
   const base = h / 2 + (f.ascR - f.descR) * size / 2;        // encre centrée verticalement
@@ -288,7 +292,7 @@ function draw(){
   const full = Math.floor(r.n / 3) * 3;
   for(let i = 0; i < r.n; i++){
     ctx.fillStyle = !revealed ? COL.ink : (i >= full ? COL.rest : (Math.floor(i / 3) % 2 ? COL.alt : COL.ink));
-    ctx.fillText('x', left + i * pitch - box.off, base);
+    ctx.fillText('x', left + i * pitch - off, base);
   }
   window.__bax = { n: r.n, font: f.name, size, xh, inkW, gap, left, total, width: w, revealed, pool: pool.length, bboxW: f.inkR * size };
 }
