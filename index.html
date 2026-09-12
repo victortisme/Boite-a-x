@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b2545">
+<title>Boîte à x</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+:root{
+  --bg:#0b2545; --bg2:#13315c; --card:#ffffff; --ink:#132437; --muted:#5b7089;
+  --accent:#1d6fd8; --accent2:#0fa36b; --gold:#e8a33d; --danger:#c94f4f;
+  --radius:18px;
+  --xink:#2b2b2b; --xalt:#1d6fd8; --xrest:#d9480f;
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:linear-gradient(160deg,var(--bg) 0%,var(--bg2) 100%);
+  color:#fff; min-height:100dvh;
+  padding-top:var(--sat); padding-bottom:var(--sab);
+  -webkit-text-size-adjust:100%;
+  touch-action:manipulation; -webkit-user-select:none; user-select:none;
+}
+.screen{max-width:560px;margin:0 auto;}
+#play{display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding:8px 14px calc(4px + var(--sab));width:100%;}
+h1{font-size:20px;margin:0;font-weight:800;letter-spacing:.3px;white-space:nowrap;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 2px 10px;flex:none;}
+.counter{font-size:14px;color:#bcd0e8;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.card{
+  background:var(--card);color:var(--ink);border-radius:22px;padding:20px 16px 14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+  display:flex;flex-direction:column;flex:1;min-height:0;
+}
+.stage{flex:1;min-height:120px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:6px;}
+#row{display:block;width:100%;height:64px;}
+.decomp{text-align:center;font-size:15px;font-weight:700;min-height:21px;line-height:21px;font-variant-numeric:tabular-nums;}
+.decomp .dq{color:var(--xink);}
+.decomp .dr{color:var(--xrest);}
+.decomp.masked{visibility:hidden;}
+.fact{
+  color:#fff;background:var(--accent);padding:11px 14px;border-radius:14px;text-align:center;
+  box-shadow:0 3px 10px rgba(29,111,216,.3);flex:none;
+}
+.fact .lab{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;opacity:.85;font-weight:700;display:block;margin-bottom:4px;}
+.fact .val{font-size:26px;font-weight:800;line-height:1.2;font-variant-numeric:tabular-nums;display:block;}
+.fact.hidden{
+  background:repeating-linear-gradient(45deg,#13315c,#13315c 12px,#1b3f74 12px,#1b3f74 24px);
+  box-shadow:none;cursor:pointer;
+}
+.fact.hidden .lab{color:#bcd0e8;}
+.fact.hidden .val{color:#bcd0e8;font-weight:700;letter-spacing:3px;}
+.credit{font-size:11px;line-height:1.4;color:var(--muted);text-align:center;margin-top:8px;min-height:15px;flex:none;}
+.credit.masked{visibility:hidden;}
+.controls{display:flex;gap:10px;margin-top:14px;flex:none;}
+.ctrl{flex:1;border:0;border-radius:16px;padding:16px 8px;font-size:16px;font-weight:700;cursor:pointer;color:#fff;}
+.prev{background:rgba(255,255,255,.16);}
+.next{background:var(--accent);}
+.reveal{background:var(--gold);color:#132437;flex:1.4;}
+.ctrl[disabled]{opacity:.35;}
+.ctrl:active{transform:scale(.97);}
+.foot{text-align:center;color:#8aa0b8;font-size:10.5px;margin:6px 0 0;padding-bottom:2px;line-height:1.5;flex:none;}
+@media (hover:none){ #play, .card, .stage{cursor:pointer;} }
+</style>
+</head>
+<body>
+
+<!-- RANGÉE -->
+<div class="screen" id="play">
+  <div class="topbar">
+    <h1>🔢 Boîte à x</h1>
+    <span class="counter" id="counter"></span>
+  </div>
+  <div class="card" id="playcard">
+    <div class="stage">
+      <canvas id="row" aria-label="Rangée de x"></canvas>
+      <div class="decomp masked" id="decomp">&nbsp;</div>
+    </div>
+    <div class="fact hidden" id="fact">
+      <span class="lab">Nombre de x</span>
+      <span class="val" id="val">• • •</span>
+    </div>
+    <div class="credit masked" id="fontname">&nbsp;</div>
+  </div>
+  <div class="controls">
+    <button class="ctrl prev" type="button" onclick="hideOrPrev()">◀ Préc.</button>
+    <button class="ctrl reveal" type="button" id="revealBtn" onclick="revealOrNext()">👁 Révéler</button>
+    <button class="ctrl next" type="button" onclick="nextRow()">Suiv. ▶</button>
+  </div>
+  <p class="foot">Cliquez l’écran ou → / ↓ / Espace pour révéler, puis passer à la rangée suivante · ← / ↑ pour masquer ou revenir<br>
+  Astuce&nbsp;: 3&nbsp;x se reconnaissent d’un coup d’œil — comptez les paquets de&nbsp;3, puis ajoutez le reste</p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* ---------- réglages ----------
+   Mesures prises sur la capture de l’exercice (3262 px de large, écran Retina) :
+   un x mesure 20,7 px de large et 25 px de haut ; d’un x au suivant, 34,15 px.
+   L’espace vide entre deux x vaut donc 0,648 fois la largeur d’un x. */
+const GAP_RATIO = 0.648;   // espace entre deux x ÷ largeur d’un x
+const X_HEIGHT  = 12.5;    // hauteur d’un x en px CSS (25 px physiques ÷ 2)
+const N_MIN = 5, N_MAX = 18;
+const CSSVAR = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL = { ink: CSSVAR('--xink'), alt: CSSVAR('--xalt'), rest: CSSVAR('--xrest') };
+
+/* Polices installées (Mac, iPad, Windows, Linux) : seules celles présentes sont retenues. */
+const LOCAL_FONTS = [
+  'Helvetica Neue','Helvetica','Arial','Avenir Next','Avenir','Futura','Gill Sans','Optima',
+  'Verdana','Trebuchet MS','Seravek','Tahoma','Geneva','Lucida Grande','Skia',
+  'Georgia','Times New Roman','Times','Palatino','Baskerville','Didot','Hoefler Text','Charter',
+  'Iowan Old Style','Cochin','Bodoni 72','Big Caslon','Superclarendon','Rockwell','Athelas',
+  'STIX Two Text','American Typewriter','Menlo','Monaco','Courier New','Courier','Andale Mono','PT Mono',
+  'Segoe UI','Calibri','Cambria','Candara','Constantia','Corbel','Consolas','Garamond',
+  'Palatino Linotype','Book Antiqua','Century Gothic','Lucida Console','Sitka Text',
+  'DejaVu Sans','DejaVu Serif','DejaVu Sans Mono','Liberation Sans','Liberation Serif','Liberation Mono',
+  'FreeSans','FreeSerif','FreeMono','TeX Gyre Heros','TeX Gyre Termes','TeX Gyre Pagella',
+  'TeX Gyre Bonum','TeX Gyre Schola','TeX Gyre Adventor','TeX Gyre Cursor','Bitstream Charter',
+  'Caladea','Carlito','Utopia'
+];
+/* Polices Google Fonts : seule la lettre x est téléchargée (paramètre text=x). */
+const WEB_FONTS = [
+  'Inter','Roboto','Open Sans','Lato','Montserrat','Poppins','Source Sans 3','Nunito','Work Sans',
+  'Fira Sans','PT Sans','Noto Sans','IBM Plex Sans','Rubik','Karla','DM Sans','Barlow','Manrope',
+  'Archivo','Mulish','Raleway','Ubuntu','Cabin','Josefin Sans','Oswald','Figtree','Outfit','Lexend',
+  'Quicksand','Exo 2','Titillium Web','Hind','Heebo','Arimo','Space Grotesk',
+  'Merriweather','Lora','Playfair Display','PT Serif','EB Garamond','Libre Baskerville','Source Serif 4',
+  'Crimson Pro','Noto Serif','Roboto Slab','Zilla Slab','Bitter','Cormorant Garamond','Spectral',
+  'Alegreya','Vollkorn','Cardo','Domine','Arvo','Old Standard TT','Libre Caslon Text',
+  'Roboto Mono','Source Code Pro','JetBrains Mono','IBM Plex Mono','Fira Code','Space Mono',
+  'Courier Prime','Inconsolata','Ubuntu Mono'
+];
+
+/* ---------- mesure des polices ---------- */
+const mc = document.createElement('canvas').getContext('2d');
+mc.textBaseline = 'alphabetic'; mc.textAlign = 'left';
+const pool = [];            // polices utilisables
+const seen = new Set();     // signatures déjà retenues (évite les doublons)
+
+function signature(stack){
+  mc.font = '100px ' + stack;
+  const a = mc.measureText('xmwilWMq1'), b = mc.measureText('x');
+  return [a.width, b.width, b.actualBoundingBoxLeft, b.actualBoundingBoxRight, b.actualBoundingBoxAscent]
+    .map(v => v.toFixed(2)).join('|');
+}
+function installed(name){
+  const q = '"' + name + '"';
+  const s = signature(q + ', monospace');
+  return s === signature(q + ', serif') && s === signature(q + ', sans-serif');
+}
+/* Ratios pour une taille de 1 px : largeur d’encre du x, hauteur d’encre, décalages. */
+function addFont(name, stack){
+  mc.font = '200px ' + stack;
+  const m = mc.measureText('x');
+  const S = 200;
+  const f = {
+    name, stack,
+    ablR: m.actualBoundingBoxLeft / S,
+    inkR: (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / S,
+    ascR: m.actualBoundingBoxAscent / S,
+    descR: m.actualBoundingBoxDescent / S
+  };
+  f.xhR = f.ascR + f.descR;
+  if(!(f.inkR > 0) || !(f.xhR > 0)) return false;
+  const aspect = f.inkR / f.xhR;
+  if(f.xhR < 0.25 || f.xhR > 0.9 || aspect < 0.45 || aspect > 1.8) return false;   // x anormal
+  const key = [f.inkR, f.ablR, f.ascR, f.descR].map(v => v.toFixed(3)).join('|');
+  if(seen.has(key)) return false;
+  seen.add(key);
+  pool.push(f);
+  return true;
+}
+/* Largeur visible d’un x, mesurée comme sur la capture : bords à 50 % d’opacité,
+   après rendu réel à la taille et à la densité de pixels de l’écran. */
+const boxCache = new Map();
+function inkBox(f, size, dpr){
+  const key = f.stack + '|' + size.toFixed(3) + '|' + dpr;
+  if(boxCache.has(key)) return boxCache.get(key);
+  const fallback = { w: f.inkR * size, off: -f.ablR * size };
+  let res = fallback;
+  try{
+    const pad = size;                                   // marge en px CSS de part et d’autre
+    const cw = Math.ceil((size * 1.5 + 2 * pad) * dpr), ch = Math.ceil(size * 1.6 * dpr);
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const g = c.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.font = size + 'px ' + f.stack; g.textBaseline = 'alphabetic'; g.textAlign = 'left'; g.fillStyle = '#000';
+    g.fillText('x', pad, size * 1.2);
+    const d = g.getImageData(0, 0, cw, ch).data;
+    const col = new Float32Array(cw);
+    for(let x = 0; x < cw; x++){
+      let m = 0;
+      for(let y = 0; y < ch; y++){ const a = d[(y * cw + x) * 4 + 3]; if(a > m) m = a; }
+      col[x] = m / 255;
+    }
+    let l = -1, r = -1;
+    for(let x = 1; x < cw; x++) if(col[x] >= .5 && col[x - 1] < .5){ l = (x - 1) + (.5 - col[x - 1]) / (col[x] - col[x - 1]); break; }
+    for(let x = cw - 1; x > 0; x--) if(col[x - 1] >= .5 && col[x] < .5){ r = (x - 1) + (col[x - 1] - .5) / (col[x - 1] - col[x]); break; }
+    if(l >= 0 && r > l) res = { w: (r - l) / dpr, off: l / dpr - pad };
+  }catch(e){ res = fallback; }
+  boxCache.set(key, res);
+  return res;
+}
+function loadWebFont(name){
+  return new Promise(resolve => {
+    let settled = false;
+    const done = ok => { if(!settled){ settled = true; resolve(ok); } };
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=' + name.replace(/ /g, '+') + '&text=x&display=block';
+    link.onload = () => {
+      document.fonts.load('40px "' + name + '"', 'x')
+        .then(faces => done(!!faces && faces.some(ff => ff.status === 'loaded')), () => done(false));
+    };
+    link.onerror = () => { link.remove(); done(false); };
+    setTimeout(() => done(false), 20000);
+    document.head.appendChild(link);
+  });
+}
+async function loadWebFonts(){
+  if(!document.fonts || !document.fonts.load) return;
+  const queue = shuffle(WEB_FONTS.slice());
+  const worker = async () => {
+    while(queue.length){
+      const name = queue.shift();
+      if(await loadWebFont(name)) addFont(name, '"' + name + '"');
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+}
+function shuffle(a){
+  for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+/* ---------- rangées ---------- */
+let rows = [], idx = -1, revealed = false, made = 0;
+
+function makeRow(){
+  const prev = rows[rows.length - 1];
+  let choices = pool.filter(f => !prev || f !== prev.font);   // police différente de la précédente
+  if(!choices.length) choices = pool;
+  return {
+    id: ++made,
+    n: N_MIN + Math.floor(Math.random() * (N_MAX - N_MIN + 1)),
+    font: choices[Math.floor(Math.random() * choices.length)]
+  };
+}
+
+function draw(){
+  const r = rows[idx]; if(!r) return;
+  const cv = $('row');
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if(!w || !h) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.round(w * dpr), H = Math.round(h * dpr);
+  if(cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const f = r.font;
+  // Hauteur d’x de l’exercice, réduite seulement si 18 x de cette police ne tiennent pas sur la largeur.
+  const units = N_MAX + (N_MAX - 1) * GAP_RATIO;              // la plus longue rangée, en largeurs de x
+  const xh = Math.min(X_HEIGHT, (w - 2) / ((f.inkR / f.xhR) * units));
+  const size = xh / f.xhR;
+  const box = inkBox(f, size, dpr);                          // largeur visible d’un x à cette taille
+  const inkW = box.w, gap = GAP_RATIO * inkW, pitch = inkW + gap;
+  const total = r.n * inkW + (r.n - 1) * gap;
+  const left = (w - total) / 2;
+  const base = h / 2 + (f.ascR - f.descR) * size / 2;        // encre centrée verticalement
+
+  ctx.font = size + 'px ' + f.stack;
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  const full = Math.floor(r.n / 3) * 3;
+  for(let i = 0; i < r.n; i++){
+    ctx.fillStyle = !revealed ? COL.ink : (i >= full ? COL.rest : (Math.floor(i / 3) % 2 ? COL.alt : COL.ink));
+    ctx.fillText('x', left + i * pitch - box.off, base);
+  }
+  window.__bax = { n: r.n, font: f.name, size, xh, inkW, gap, left, total, width: w, revealed, pool: pool.length, bboxW: f.inkR * size };
+}
+
+function render(){
+  const r = rows[idx]; if(!r) return;
+  $('counter').textContent = 'Rangée n°\u00A0' + r.id;
+  $('fact').classList.toggle('hidden', !revealed);
+  $('val').textContent = revealed ? r.n : '• • •';
+  const q = Math.floor(r.n / 3), rest = r.n % 3;
+  const d = $('decomp');
+  d.innerHTML = '<span class="dq">' + q + '\u00A0paquet' + (q > 1 ? 's' : '') + ' de\u00A03</span>'
+              + (rest ? ' <span class="dr">+\u00A0' + rest + '</span>' : '');
+  d.classList.toggle('masked', !revealed);
+  $('fontname').textContent = 'Police\u00A0: ' + r.font.name;
+  $('fontname').classList.toggle('masked', !revealed);
+  $('revealBtn').textContent = revealed ? 'Suivant ▶' : '👁 Révéler';
+  draw();
+}
+
+function nextRow(){
+  if(idx < rows.length - 1) idx++;
+  else {
+    rows.push(makeRow());
+    if(rows.length > 300) rows.shift();
+    idx = rows.length - 1;
+  }
+  revealed = false;
+  render();
+}
+function prevRow(){
+  if(idx > 0){ idx--; revealed = false; render(); }
+}
+function revealOrNext(){
+  if(!revealed){ revealed = true; render(); }
+  else nextRow();
+}
+/* Symétrique de la révélation : remasque le nombre, puis revient à la rangée précédente. */
+function hideOrPrev(){
+  if(revealed){ revealed = false; render(); }
+  else prevRow();
+}
+
+/* ---------- commandes ---------- */
+$('play').addEventListener('click', e => {
+  if(e.target.closest('button, a, .topbar, .controls')) return;
+  revealOrNext();
+});
+document.querySelectorAll('button').forEach(b => b.addEventListener('click', () => b.blur()));
+document.addEventListener('keydown', e => {
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if(k === 'ArrowRight' || k === 'ArrowDown' || k === ' ' || k === 'Enter'){ e.preventDefault(); revealOrNext(); }
+  else if(k === 'ArrowLeft' || k === 'ArrowUp'){ e.preventDefault(); hideOrPrev(); }
+});
+(function(){
+  let x0 = null, y0 = null;
+  document.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, {passive:true});
+  document.addEventListener('touchend', e => {
+    if(x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    if(Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)){
+      if(dx < 0) revealOrNext(); else hideOrPrev();
+    }
+  }, {passive:true});
+})();
+if(window.ResizeObserver) new ResizeObserver(() => draw()).observe($('row'));
+else window.addEventListener('resize', draw);
+
+/* ---------- démarrage ---------- */
+function init(){
+  LOCAL_FONTS.forEach(n => { if(installed(n)) addFont(n, '"' + n + '"'); });
+  addFont('Police du système', 'system-ui');
+  if(!pool.length) ['sans-serif', 'serif', 'monospace'].forEach(g => addFont(g, g));
+  rows.push(makeRow()); idx = 0;
+  render();
+  loadWebFonts();
+}
+init();
+</script>
+</body>
+</html>
