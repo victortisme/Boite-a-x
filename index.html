@@ -266,10 +266,17 @@ function draw(){
 
   const f = r.font;
   // Hauteur d’x de l’exercice, réduite seulement si 18 x de cette police ne tiennent pas sur la largeur.
+  // La largeur retenue est celle du rendu réel, ajustée par itérations : l’encre effective peut
+  // déborder légèrement de la boîte annoncée par la police (Courier sur macOS, par exemple).
   const units = N_MAX + (N_MAX - 1) * GAP_RATIO;              // la plus longue rangée, en largeurs de x
-  const xh = Math.min(X_HEIGHT, (w - 2) / ((f.inkR / f.xhR) * units));
+  const avail = w - 2;
+  let xh = Math.min(X_HEIGHT, avail / ((f.inkR / f.xhR) * units));
+  let box = inkBox(f, xh / f.xhR, dpr);                       // largeur visible d’un x à cette taille
+  for(let k = 0; k < 4 && box.w * units > avail; k++){
+    xh *= avail / (box.w * units);
+    box = inkBox(f, xh / f.xhR, dpr);
+  }
   const size = xh / f.xhR;
-  const box = inkBox(f, size, dpr);                          // largeur visible d’un x à cette taille
   const inkW = box.w, gap = GAP_RATIO * inkW, pitch = inkW + gap;
   const total = r.n * inkW + (r.n - 1) * gap;
   const left = (w - total) / 2;
