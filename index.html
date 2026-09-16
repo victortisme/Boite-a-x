@@ -93,7 +93,7 @@ h1{font-size:20px;margin:0;font-weight:800;letter-spacing:.3px;white-space:nowra
     <button class="ctrl next" type="button" onclick="nextRow()">Suiv. ▶</button>
   </div>
   <p class="foot">Cliquez l’écran ou → / ↓ / Espace pour révéler, puis passer à la rangée suivante · ← / ↑ pour masquer ou revenir<br>
-  Astuce&nbsp;: 3&nbsp;x se reconnaissent d’un coup d’œil — comptez les paquets de&nbsp;3, puis ajoutez le reste</p>
+  Astuce&nbsp;: rouge = milieu de la rangée, bleu = milieu de chaque moitié — comptez une moitié, doublez, +&nbsp;1 si un x occupe le milieu</p>
 </div>
 
 <script>
@@ -252,6 +252,20 @@ function makeRow(){
   };
 }
 
+/* Découpage symétrique. Axe de la rangée en rouge : le x du milieu si le nombre est impair,
+   un trait dans l’intervalle central s’il est pair. Axe de chaque moitié en bleu, seulement
+   quand une moitié dépasse 4 x — ainsi aucun bloc visible ne compte plus de 4 x. */
+function axes(n){
+  const k = n >> 1;                       // taille d’une moitié
+  const out = n % 2 ? [{ x: k, col: COL.rest }] : [{ gap: k - 1, col: COL.rest }];
+  if(k >= 5){
+    const h = k >> 1;
+    if(k % 2){ out.push({ x: h, col: COL.alt }, { x: n - k + h, col: COL.alt }); }
+    else { out.push({ gap: h - 1, col: COL.alt }, { gap: n - k + h - 1, col: COL.alt }); }
+  }
+  return out;
+}
+
 function draw(){
   const r = rows[idx]; if(!r) return;
   const cv = $('row');
@@ -289,11 +303,20 @@ function draw(){
   ctx.font = size + 'px ' + f.stack;
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
-  const full = Math.floor(r.n / 3) * 3;
+  const marks = revealed ? axes(r.n) : [];
+  const onX = {};
+  marks.forEach(m => { if(m.x !== undefined) onX[m.x] = m.col; });
   for(let i = 0; i < r.n; i++){
-    ctx.fillStyle = !revealed ? COL.ink : (i >= full ? COL.rest : (Math.floor(i / 3) % 2 ? COL.alt : COL.ink));
+    ctx.fillStyle = onX[i] || COL.ink;
     ctx.fillText('x', left + i * pitch - off, base);
   }
+  marks.forEach(m => {                                        // traits verticaux dans les intervalles
+    if(m.gap === undefined) return;
+    const cx = left + m.gap * pitch + inkW + gap / 2;
+    const bw = Math.max(1.2, inkW * 0.14), bh = xh * 1.5;
+    ctx.fillStyle = m.col;
+    ctx.fillRect(cx - bw / 2, h / 2 - bh / 2, bw, bh);
+  });
   window.__bax = { n: r.n, font: f.name, size, xh, inkW, gap, left, total, width: w, revealed, pool: pool.length, bboxW: f.inkR * size };
 }
 
@@ -302,10 +325,10 @@ function render(){
   $('counter').textContent = 'Rangée n°\u00A0' + r.id;
   $('fact').classList.toggle('hidden', !revealed);
   $('val').textContent = revealed ? r.n : '• • •';
-  const q = Math.floor(r.n / 3), rest = r.n % 3;
+  const half = r.n >> 1;
   const d = $('decomp');
-  d.innerHTML = '<span class="dq">' + q + '\u00A0paquet' + (q > 1 ? 's' : '') + ' de\u00A03</span>'
-              + (rest ? ' <span class="dr">+\u00A0' + rest + '</span>' : '');
+  d.innerHTML = '<span class="dq">2\u00A0\u00D7\u00A0' + half + '</span>'
+              + (r.n % 2 ? ' <span class="dr">+\u00A01</span>' : '');
   d.classList.toggle('masked', !revealed);
   $('fontname').textContent = 'Police\u00A0: ' + r.font.name;
   $('fontname').classList.toggle('masked', !revealed);
