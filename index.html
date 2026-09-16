@@ -32,6 +32,21 @@ body{
 h1{font-size:20px;margin:0;font-weight:800;letter-spacing:.3px;white-space:nowrap;}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 2px 10px;flex:none;}
 .counter{font-size:14px;color:#bcd0e8;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.bounds{
+  display:flex;align-items:center;justify-content:center;gap:8px;flex:none;margin:0 0 8px;
+  background:rgba(232,163,61,.16);border:1px solid rgba(232,163,61,.35);border-radius:999px;
+  padding:5px 10px;font-size:12.5px;color:#f0d9b5;
+}
+.bounds .blab{font-weight:700;letter-spacing:.3px;white-space:nowrap;}
+.stepper{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.10);border-radius:999px;padding:2px 4px;}
+.stepper b{min-width:22px;text-align:center;font-size:14px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;}
+.sbtn{
+  border:0;width:26px;height:26px;border-radius:999px;background:var(--card);color:var(--ink);
+  font-size:16px;font-weight:800;line-height:1;cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.sbtn:disabled{opacity:.3;cursor:default;}
+.sbtn:active:not(:disabled){transform:scale(.94);}
 .card{
   background:var(--card);color:var(--ink);border-radius:22px;padding:20px 16px 14px;
   box-shadow:0 10px 30px rgba(0,0,0,.35);
@@ -76,6 +91,20 @@ h1{font-size:20px;margin:0;font-weight:800;letter-spacing:.3px;white-space:nowra
     <h1>🔢 Boîte à x</h1>
     <span class="counter" id="counter"></span>
   </div>
+  <div class="bounds" id="bounds">
+    <span class="blab">x par rangée</span>
+    <span class="stepper">
+      <button class="sbtn" type="button" id="loMinus" onclick="setBound('lo', -1)" aria-label="Diminuer la borne basse">−</button>
+      <b id="loVal">5</b>
+      <button class="sbtn" type="button" id="loPlus" onclick="setBound('lo', 1)" aria-label="Augmenter la borne basse">+</button>
+    </span>
+    <span class="blab">à</span>
+    <span class="stepper">
+      <button class="sbtn" type="button" id="hiMinus" onclick="setBound('hi', -1)" aria-label="Diminuer la borne haute">−</button>
+      <b id="hiVal">18</b>
+      <button class="sbtn" type="button" id="hiPlus" onclick="setBound('hi', 1)" aria-label="Augmenter la borne haute">+</button>
+    </span>
+  </div>
   <div class="card" id="playcard">
     <div class="stage">
       <canvas id="row" aria-label="Rangée de x"></canvas>
@@ -105,7 +134,12 @@ const $ = id => document.getElementById(id);
    L’espace vide entre deux x vaut donc 0,648 fois la largeur d’un x. */
 const GAP_RATIO = 0.648;   // espace entre deux x ÷ largeur d’un x
 const X_HEIGHT  = 12.5;    // hauteur d’un x en px CSS (25 px physiques ÷ 2)
-const N_MIN = 5, N_MAX = 18;
+const N_FLOOR = 1, N_MAX = 18;          // bornes admises ; N_MAX fixe aussi la taille des x
+let loN = 5, hiN = 18;                  // bornes choisies (les deux boîtes)
+try{
+  const sv = JSON.parse(localStorage.getItem('bax-bornes') || 'null');
+  if(sv && sv.lo >= N_FLOOR && sv.hi <= N_MAX && sv.lo <= sv.hi){ loN = sv.lo; hiN = sv.hi; }
+}catch(e){}
 const CSSVAR = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const COL = { ink: CSSVAR('--xink'), alt: CSSVAR('--xalt'), rest: CSSVAR('--xrest') };
 
@@ -241,13 +275,34 @@ function shuffle(a){
 /* ---------- rangées ---------- */
 let rows = [], idx = -1, revealed = false, made = 0;
 
+function randN(){ return loN + Math.floor(Math.random() * (hiN - loN + 1)); }
+
+/* Les deux boîtes : un clic monte ou descend une borne ; la rangée en cours,
+   si elle est encore masquée et hors bornes, est retirée aussitôt. */
+function setBound(which, d){
+  if(which === 'lo') loN = Math.min(Math.max(N_FLOOR, loN + d), hiN);
+  else hiN = Math.min(N_MAX, Math.max(hiN + d, loN));
+  try{ localStorage.setItem('bax-bornes', JSON.stringify({ lo: loN, hi: hiN })); }catch(e){}
+  paintBounds();
+  const r = rows[idx];
+  if(r && !revealed && (r.n < loN || r.n > hiN)){ r.n = randN(); render(); }
+}
+function paintBounds(){
+  $('loVal').textContent = loN;
+  $('hiVal').textContent = hiN;
+  $('loMinus').disabled = loN <= N_FLOOR;
+  $('loPlus').disabled  = loN >= hiN;
+  $('hiMinus').disabled = hiN <= loN;
+  $('hiPlus').disabled  = hiN >= N_MAX;
+}
+
 function makeRow(){
   const prev = rows[rows.length - 1];
   let choices = pool.filter(f => !prev || f !== prev.font);   // police différente de la précédente
   if(!choices.length) choices = pool;
   return {
     id: ++made,
-    n: N_MIN + Math.floor(Math.random() * (N_MAX - N_MIN + 1)),
+    n: randN(),
     font: choices[Math.floor(Math.random() * choices.length)]
   };
 }
@@ -256,6 +311,7 @@ function makeRow(){
    un trait dans l’intervalle central s’il est pair. Axe de chaque moitié en bleu, seulement
    quand une moitié dépasse 4 x — ainsi aucun bloc visible ne compte plus de 4 x. */
 function axes(n){
+  if(n < 5) return [];                    // 4 x ou moins : vus d’un coup, aucun repère
   const k = n >> 1;                       // taille d’une moitié
   const out = n % 2 ? [{ x: k, col: COL.rest }] : [{ gap: k - 1, col: COL.rest }];
   if(k >= 5){
@@ -327,8 +383,9 @@ function render(){
   $('val').textContent = revealed ? r.n : '• • •';
   const half = r.n >> 1;
   const d = $('decomp');
-  d.innerHTML = '<span class="dq">2\u00A0\u00D7\u00A0' + half + '</span>'
-              + (r.n % 2 ? ' <span class="dr">+\u00A01</span>' : '');
+  d.innerHTML = r.n < 5 ? '&nbsp;'                       // 4 x ou moins : rien à décomposer
+              : '<span class="dq">2\u00A0\u00D7\u00A0' + half + '</span>'
+                + (r.n % 2 ? ' <span class="dr">+\u00A01</span>' : '');
   d.classList.toggle('masked', !revealed);
   $('fontname').textContent = 'Police\u00A0: ' + r.font.name;
   $('fontname').classList.toggle('masked', !revealed);
@@ -361,7 +418,7 @@ function hideOrPrev(){
 
 /* ---------- commandes ---------- */
 $('play').addEventListener('click', e => {
-  if(e.target.closest('button, a, .topbar, .controls')) return;
+  if(e.target.closest('button, a, .topbar, .controls, .bounds')) return;
   revealOrNext();
 });
 document.querySelectorAll('button').forEach(b => b.addEventListener('click', () => b.blur()));
@@ -391,6 +448,7 @@ function init(){
   LOCAL_FONTS.forEach(n => { if(installed(n)) addFont(n, '"' + n + '"'); });
   addFont('Police du système', 'system-ui');
   if(!pool.length) ['sans-serif', 'serif', 'monospace'].forEach(g => addFont(g, g));
+  paintBounds();
   rows.push(makeRow()); idx = 0;
   render();
   loadWebFonts();
